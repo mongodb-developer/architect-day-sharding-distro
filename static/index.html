@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB Performance Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .connection-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 140px;
+        }
+
+        .btn-connect {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-connect:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-disconnect {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-disconnect:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover:not(:disabled) {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .metrics-info {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .metrics-info.show {
+            display: grid;
+        }
+
+        .btn-admin {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-admin:hover:not(:disabled) {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .metric-value.writes {
+            color: #ff6384;
+        }
+
+        .metric-value.updates {
+            color: #f093fb;
+        }
+
+        .metric-value.queries {
+            color: #2ecc71;
+        }
+
+        .chart-container {
+            padding: 30px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 500px;
+            margin-top: 20px;
+        }
+
+        .error-message {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 0;
+            border: 1px solid #888;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #f0f0f0;
+            text-decoration: none;
+        }
+
+        .modal-body {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body h1,
+        .modal-body h2,
+        .modal-body h3 {
+            color: #333;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .modal-body h1 {
+            font-size: 2em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.3em;
+        }
+
+        .modal-body h2 {
+            font-size: 1.5em;
+        }
+
+        .modal-body h3 {
+            font-size: 1.2em;
+        }
+
+        .modal-body p {
+            line-height: 1.6;
+            margin-bottom: 1em;
+            color: #555;
+        }
+
+        .modal-body ul,
+        .modal-body ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+
+        .modal-body li {
+            margin-bottom: 0.5em;
+            line-height: 1.6;
+        }
+
+        .modal-body code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .modal-body pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+        }
+
+        .modal-body pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 MongoDB Sharding Performance Monitor</h1>
+            <p>Real-time performance monitoring for sharded MongoDB Atlas clusters</p>
+        </div>
+
+        <div class="controls">
+            <div class="connection-form">
+                <button class="btn btn-connect" id="connectBtn" onclick="connect()">Connect</button>
+                <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+                <button class="btn btn-info" id="infoBtn" onclick="showOperationInfo()" disabled>Info</button>
+                <button class="btn btn-admin" id="adminBtn" onclick="showAdminPrompt()">Admin</button>
+            </div>
+            <div class="status" id="status">Disconnected</div>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <div class="metrics-info" id="metricsInfo">
+            <div class="metric-card">
+                <div class="metric-label">MongoDB Connections</div>
+                <input type="number" id="connectionsInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Threads per Connection</div>
+                <input type="number" id="goroutinesInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Write Batch Size</div>
+                <input type="number" id="batchSizeInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Operation Type</div>
+                <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+                    <option value="read-unsharded">Read (unsharded)</option>
+                    <option value="read-sharded-undirected">Read (sharded / undirected)</option>
+                    <option value="read-sharded-directed">Read (sharded / directed)</option>
+                    <option value="read-range-unsharded">Read Range (unsharded)</option>
+                    <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
+                    <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
+                    <option value="update-unsharded">Update (unsharded)</option>
+                    <option value="update-sharded-undirected">Update (sharded / undirected)</option>
+                    <option value="update-sharded-directed">Update (sharded / directed)</option>
+                    <option value="write-unsharded">Write (unsharded)</option>
+                    <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
+                    <option value="write-sharded-hashed">Write (sharded / hashed)</option>
+                    <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2 style="margin-bottom: 20px; color: #333;">Operations Per Shard</h2>
+            <div class="chart-wrapper">
+                <canvas id="metricsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for operation info -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Operation Information</h2>
+                <span class="close" onclick="closeInfoModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for admin password -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Admin Authentication</h2>
+                <span class="close" onclick="closePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm" onsubmit="submitPassword(event)">
+                    <label for="passwordInput" style="display: block; margin-bottom: 10px; font-weight: 600; color: #333;">Enter Admin Password:</label>
+                    <input type="password" id="passwordInput" autocomplete="off" style="width: 100%; padding: 12px; font-size: 16px; border: 2px solid #e0e0e0; border-radius: 6px; margin-bottom: 20px; box-sizing: border-box;" placeholder="Password" autofocus>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-disconnect" onclick="closePasswordModal()" style="min-width: 100px;">Cancel</button>
+                        <button type="submit" class="btn btn-connect" style="min-width: 100px;">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script>
+        let ws = null;
+        let chart = null;
+        let isFirstMessage = false;
+        let isAuthenticated = false;
+        const maxDataPoints = 60; // 60 seconds of data
+        const dataStore = {
+            labels: [],
+            operations: []
+        };
+
+        function initChart() {
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dataStore.labels,
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Operations per Second'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        function calculateMovingAverage(array) {
+                
+            // Calculate average of the values in the array
+            const sum = array.reduce((a, b) => a + b, 0);
+            const average = sum / array.length
+            return average;
+
+        }
+
+
+        function addDataPoint(metrics) {
+
+            var updatedChartData = [];
+
+            const dateTimeString = metrics.snapshotTime;
+            const dateObj = new Date(dateTimeString);   
+            // Get local time as HH:MM:SS  
+            const timeOnly = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); 
+
+            dataStore.labels.push(timeOnly);
+            // Keep only last 60 data points
+            if (dataStore.labels.length > maxDataPoints) {
+                dataStore.labels.shift();
+            }
+
+            seriesColors  = ['0, 114, 178', '230, 159, 0', '0, 158, 115', '220, 53, 69', '240, 228, 66','86, 180, 233']
+            var seriesColorsIndex = 0;
+
+
+            for (const [shardName, shardData] of Object.entries(metrics.opsCount)) {  
+                console.log("Shard:", shardName);  
+                console.log("opCounts:", shardData.opCounts);  
+                console.log("Connections:", shardData.connections);
+                console.log("Operation Type:", shardData.operationType);
+                console.log("Date:", metrics.snapshotTime);
+                console.log("------");  
+
+                dataStore[shardName] ??= {};  
+                dataStore[shardName].operations ??= [];
+                if (!dataStore[shardName].borderColor) {
+                    dataStore[shardName].borderColor = 'rgb(' + seriesColors[seriesColorsIndex] + ')';
+                    dataStore[shardName].backgroundColor = 'rgba(' + seriesColors[seriesColorsIndex] + ', 0.1)';
+                }
+                seriesColorsIndex++;
+                if (seriesColorsIndex >= seriesColors.length) {
+                    seriesColorsIndex = 0;
+                }
+ 
+                switch (shardData.operationType) {
+                    case 'read-unsharded':
+                    case 'read-sharded-undirected':
+                    case'read-sharded-directed':
+                    case 'read-range-unsharded':
+                    case 'read-range-sharded-directed':
+                    case 'read-range-sharded-undirected':
+                        chart.options.scales.y.title.text = 'Reads per Second';
+                        dataStore[shardName].operations.push(shardData.opCounts.Queries);
+                        break;
+                    case 'update-unsharded':
+                    case 'update-sharded-undirected':
+                    case 'update-sharded-directed':
+                    chart.options.scales.y.title.text = 'Updates per Second';
+                        dataStore[shardName].operations.push(shardData.opCounts.Updates);
+                        break;
+                    case 'write-unsharded':
+                    case 'write-sharded-equal':
+                    case 'write-sharded-hashed':
+                    case 'write-sharded-monotonic':
+                        chart.options.scales.y.title.text = 'Inserts per Second';
+                        dataStore[shardName].operations.push(shardData.opCounts.Inserts);
+                        break;
+                    default:
+                        dataStore[shardName].operations.push(0);
+                        break;
+                }
+
+
+                // Keep only last 60 data points
+                if (dataStore[shardName].operations.length > maxDataPoints) {
+                    dataStore[shardName].operations.shift();
+                }
+                chartDataSet = {
+                    label: shardName,
+                    data: [...dataStore[shardName].operations],
+                    borderColor: dataStore[shardName].borderColor,
+                    backgroundColor: dataStore[shardName].backgroundColor,
+                    tension: 0.4,
+                    fill: true
+                }
+                updatedChartData.push(chartDataSet);
+
+            }
+            chart.data.datasets = [...updatedChartData];
+            chart.data.labels = [...dataStore.labels];
+            totalsDataSet = {
+                label: "Total Operations",
+                data: [],
+                borderColor: 'rgb(' + seriesColors[seriesColorsIndex] + ')',
+                backgroundColor: 'rgba(' + seriesColors[seriesColorsIndex] + ', 0.1)',
+                tension: 0.4,
+                fill: true
+            }
+            for (i =0; i < chart.data.datasets[0].data.length; i++) {
+                totalsDataSet.data.push(0);
+                for (y =0; y < chart.data.datasets.length; y++) {
+                    if (chart.data.datasets[y].label !== "Application Load") {
+                        totalsDataSet.data[i] += chart.data.datasets[y].data[i];
+                    }
+                }
+            }
+            chart.data.datasets.push(totalsDataSet);
+            // Update chart
+            chart.update('none');
+        }
+
+        function updateSettings(data) {
+            // Update input values only if they are present in the message (non-zero values)
+            const connectionsInput = document.getElementById('connectionsInput');
+            const goroutinesInput = document.getElementById('goroutinesInput');
+            const batchSizeInput = document.getElementById('batchSizeInput');
+            const operationTypeSelect = document.getElementById('operationTypeSelect');
+
+            if (data.success) {
+                console.log('Resources updated successfully:', data.message);
+            } else {
+                showError('Failed to update resources: ' + (data.message || 'Unknown error'));
+            }
+            // Update input fields with actual values from server
+            if (data.connections !== undefined) {
+                connectionsInput.value = data.connections;
+            }
+            if (data.goroutinesPerConnection !== undefined) {
+                goroutinesInput.value = data.goroutinesPerConnection;
+            }
+            if (data.operationType !== undefined) {
+                operationTypeSelect.value = data.operationType;
+            }
+            if (data.writeBatchSize !== undefined) {
+                batchSizeInput.value = data.writeBatchSize;
+            }
+            return;
+        }
+
+        function setStatus(status, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status status-' + status;
+            statusEl.textContent = message;
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => {
+                errorEl.classList.remove('show');
+            }, 5000);
+        }
+
+        function getWebSocketURL() {
+            // Derive WebSocket URL from current page URL
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            return `${protocol}//${host}/ws`;
+        }
+
+        function connect() {
+            const url = getWebSocketURL();
+            console.log('Connecting to:', url);
+
+            setStatus('connecting', 'Connecting...');
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('disconnectBtn').disabled = false;
+            document.getElementById('errorMessage').classList.remove('show');
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = function() {
+                    setStatus('connected', 'Connected');
+                    isFirstMessage = true; // Flag to skip chart update for first message (has config but may have stale metrics)
+                    // Enable inputs when connected
+                    document.getElementById('connectionsInput').disabled = false;
+                    document.getElementById('goroutinesInput').disabled = false;
+                    document.getElementById('batchSizeInput').disabled = false;
+                    document.getElementById('operationTypeSelect').disabled = false;
+                    document.getElementById('infoBtn').disabled = false;
+                    console.log('WebSocket connected');
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        // Handle control responses
+                        if (data.type === 'updateResponse') {
+                            updateSettings(data);
+                        } else if (data.type === 'passwordResponse') {
+                            handlePasswordResponse(data);
+                        } else {
+                            if (!isFirstMessage) {
+                                addDataPoint(data);
+                            } else {
+                                isFirstMessage = false;
+                                console.log('Processed first message with config, skipping chart update');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing message:', e, event.data);
+                        showError('Error parsing WebSocket message: ' + e.message);
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    showError('WebSocket connection error. Check the URL and ensure the server is running.');
+                };
+
+                ws.onclose = function() {
+                    // Only update UI if disconnect wasn't already called
+                    if (ws !== null) {
+                        setStatus('disconnected', 'Disconnected');
+                        document.getElementById('connectBtn').disabled = false;
+                        document.getElementById('disconnectBtn').disabled = true;
+                        // Disable inputs when disconnected
+                        document.getElementById('connectionsInput').disabled = true;
+                        document.getElementById('goroutinesInput').disabled = true;
+                        document.getElementById('batchSizeInput').disabled = true;
+                        document.getElementById('operationTypeSelect').disabled = true;
+                        document.getElementById('infoBtn').disabled = true;
+                        // Reset authentication state
+                        isAuthenticated = false;
+                        const metricsInfo = document.getElementById('metricsInfo');
+                        metricsInfo.classList.remove('show');
+                        document.getElementById('adminBtn').textContent = 'Admin';
+                    }
+                    ws = null;
+                    console.log('WebSocket disconnected');
+                };
+            } catch (e) {
+                setStatus('disconnected', 'Connection Failed');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                // Disable inputs on connection failure
+                document.getElementById('connectionsInput').disabled = true;
+                document.getElementById('goroutinesInput').disabled = true;
+                document.getElementById('batchSizeInput').disabled = true;
+                document.getElementById('operationTypeSelect').disabled = true;
+                document.getElementById('infoBtn').disabled = true;
+                // Reset authentication state
+                isAuthenticated = false;
+                const metricsInfo = document.getElementById('metricsInfo');
+                metricsInfo.classList.remove('show');
+                document.getElementById('adminBtn').textContent = 'Admin';
+                showError('Failed to create WebSocket: ' + e.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                // Update UI immediately
+                setStatus('disconnected', 'Disconnected');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                
+                // Disable inputs when disconnected
+                document.getElementById('connectionsInput').disabled = true;
+                document.getElementById('goroutinesInput').disabled = true;
+                document.getElementById('batchSizeInput').disabled = true;
+                document.getElementById('operationTypeSelect').disabled = true;
+                document.getElementById('infoBtn').disabled = true;
+                
+                // Reset authentication state
+                isAuthenticated = false;
+                const metricsInfo = document.getElementById('metricsInfo');
+                metricsInfo.classList.remove('show');
+                document.getElementById('adminBtn').textContent = 'Admin';
+                
+                // Close the connection
+                ws.close();
+                ws = null;
+                console.log('Disconnect initiated');
+            }
+        }
+
+        function sendUpdateRequest() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('WebSocket not connected');
+                return;
+            }
+
+            const connections = parseInt(document.getElementById('connectionsInput').value);
+            const goroutines = parseInt(document.getElementById('goroutinesInput').value);
+            const batchSize = parseInt(document.getElementById('batchSizeInput').value);
+            const operationType = document.getElementById('operationTypeSelect').value;
+
+            if (isNaN(connections) || connections < 1) {
+                showError('Connections must be at least 1');
+                return;
+            }
+
+            if (isNaN(goroutines) || goroutines < 1) {
+                showError('Goroutines per connection must be at least 1');
+                return;
+            }
+
+            if (isNaN(batchSize) || batchSize < 1) {
+                showError('Batch size must be at least 1');
+                return;
+            }
+
+            if (operationType === '') {
+                showError('Operation type is required');
+                return;
+            }
+
+            const message = {
+                type: 'updateResources',
+                connections: connections,
+                goroutinesPerConnection: goroutines,
+                writeBatchSize: batchSize,
+                operationType: operationType
+            };
+
+            try {
+                ws.send(JSON.stringify(message));
+                console.log('Sent update request:', message);
+            } catch (e) {
+                showError('Failed to send update request: ' + e.message);
+            }
+        }
+
+        // Initialize chart on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            
+            // Add event listeners for input changes with debounce
+            let updateTimeout;
+            const connectionsInput = document.getElementById('connectionsInput');
+            const goroutinesInput = document.getElementById('goroutinesInput');
+            const operationTypeSelect = document.getElementById('operationTypeSelect');
+            const batchSizeInput = document.getElementById('batchSizeInput');
+            
+            connectionsInput.addEventListener('change', function() {
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(sendUpdateRequest, 500);
+            });
+            
+            goroutinesInput.addEventListener('change', function() {
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(sendUpdateRequest, 500);
+            });
+            
+            batchSizeInput.addEventListener('change', function() {
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(sendUpdateRequest, 500);
+            });
+            
+            operationTypeSelect.addEventListener('change', function() {
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(sendUpdateRequest, 500);
+            });
+        });
+
+        function showOperationInfo() {
+            const operationType = document.getElementById('operationTypeSelect').value;
+            const modal = document.getElementById('infoModal');
+            const modalBody = document.getElementById('modalBody');
+            const modalTitle = document.getElementById('modalTitle');
+            
+            // Get the display name for the title
+            const select = document.getElementById('operationTypeSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            modalTitle.textContent = selectedOption.text + ' - Information';
+            
+            // Show modal
+            modal.classList.add('show');
+            modalBody.innerHTML = '<p>Loading...</p>';
+            
+            // Fetch markdown file
+            fetch(`docs/${operationType}.md`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Markdown file not found');
+                    }
+                    return response.text();
+                })
+                .then(markdown => {
+                    // Parse markdown to HTML
+                    const html = marked.parse(markdown);
+                    modalBody.innerHTML = html;
+                })
+                .catch(error => {
+                    modalBody.innerHTML = `<p style="color: #dc3545;">Error loading documentation: ${error.message}</p>`;
+                });
+        }
+
+        function closeInfoModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('show');
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const infoModal = document.getElementById('infoModal');
+            const passwordModal = document.getElementById('passwordModal');
+            if (event.target === infoModal) {
+                closeInfoModal();
+            }
+            if (event.target === passwordModal) {
+                closePasswordModal();
+            }
+        }
+
+        function showAdminPrompt() {
+            if (isAuthenticated) {
+                // Already authenticated, hide metrics-info
+                isAuthenticated = false;
+                const metricsInfo = document.getElementById('metricsInfo');
+                metricsInfo.classList.remove('show');
+                document.getElementById('adminBtn').textContent = 'Admin';
+                showError('Metrics section hidden');
+                return;
+            }
+
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('Please connect first');
+                return;
+            }
+
+            // Show password modal
+            const passwordModal = document.getElementById('passwordModal');
+            const passwordInput = document.getElementById('passwordInput');
+            passwordModal.classList.add('show');
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+
+        function closePasswordModal() {
+            const passwordModal = document.getElementById('passwordModal');
+            const passwordInput = document.getElementById('passwordInput');
+            passwordModal.classList.remove('show');
+            passwordInput.value = '';
+        }
+
+        function submitPassword(event) {
+            event.preventDefault();
+            
+            const passwordInput = document.getElementById('passwordInput');
+            const password = passwordInput.value;
+
+            if (password === '') {
+                showError('Password cannot be empty');
+                return;
+            }
+
+            // Send password verification request
+            const message = {
+                type: 'verifyPassword',
+                password: password
+            };
+
+            try {
+                ws.send(JSON.stringify(message));
+                console.log('Sent password verification request');
+                closePasswordModal();
+            } catch (e) {
+                showError('Failed to send password verification: ' + e.message);
+            }
+        }
+
+        function handlePasswordResponse(data) {
+            if (data.authenticated) {
+                isAuthenticated = true;
+                const metricsInfo = document.getElementById('metricsInfo');
+                metricsInfo.classList.add('show');
+                document.getElementById('adminBtn').textContent = 'Hide Metrics';
+                // Don't show error for success, just log
+                console.log('Authentication successful');
+            } else {
+                isAuthenticated = false;
+                showError('Invalid password');
+                // Re-show password modal on failure
+                setTimeout(() => {
+                    showAdminPrompt();
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
+
