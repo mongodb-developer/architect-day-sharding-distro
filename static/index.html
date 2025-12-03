@@ -527,12 +527,12 @@
             var seriesColorsIndex = 0;
 
 
-            for (const [shardName, shardData] of Object.entries(metrics.opsCount)) {
+            var shardnum = 1;
+            for (var [shardName, shardData] of Object.entries(metrics.opsCount)) {
                 
                 //Rename shards to make more readable
                 //Note - in the Instruqt environment, the shard names are sh1, sh2, sh3, sh4. 
                 // sh1 is the config shard and isn't shown in the UI.
-                let shardnum = 1;
                 switch (shardName) {
                     case "Application Load":
                         shardName = "Application Operations";
