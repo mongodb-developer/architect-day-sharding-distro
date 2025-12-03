@@ -146,6 +146,25 @@
             display: grid;
         }
 
+        .operation-type-selector {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .operation-type-selector.show {
+            display: block;
+        }
+
+        .operation-type-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+        }
+
         .btn-admin {
             background: #6c757d;
             color: white;
@@ -356,25 +375,33 @@
                 <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
                 <button class="btn btn-info" id="infoBtn" onclick="showOperationInfo()" disabled>Info</button>
                 <button class="btn btn-admin" id="adminBtn" onclick="showAdminPrompt()">Admin</button>
+                <div class="operation-type-selector" id="operationTypeSelectorTemp">
+                    <div class="operation-type-card">
+                        <div class="metric-label">Operation Type</div>
+                        <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+                            <option value="read-unsharded">Read (unsharded)</option>
+                            <option value="read-sharded-undirected">Read (sharded / undirected)</option>
+                            <option value="read-sharded-directed">Read (sharded / directed)</option>
+                            <option value="read-range-unsharded">Read Range (unsharded)</option>
+                            <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
+                            <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
+                            <option value="update-unsharded">Update (unsharded)</option>
+                            <option value="update-sharded-undirected">Update (sharded / undirected)</option>
+                            <option value="update-sharded-directed">Update (sharded / directed)</option>
+                            <option value="write-unsharded">Write (unsharded)</option>
+                            <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
+                            <option value="write-sharded-hashed">Write (sharded / hashed)</option>
+                            <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="status" id="status">Disconnected</div>
             <div class="error-message" id="errorMessage"></div>
         </div>
 
-        <div class="metrics-info" id="metricsInfo">
-            <div class="metric-card">
-                <div class="metric-label">MongoDB Connections</div>
-                <input type="number" id="connectionsInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Threads per Connection</div>
-                <input type="number" id="goroutinesInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Write Batch Size</div>
-                <input type="number" id="batchSizeInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
+        <div class="operation-type-selector" id="operationTypeSelector">
+            <div class="operation-type-card">
                 <div class="metric-label">Operation Type</div>
                 <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
                     <option value="read-unsharded">Read (unsharded)</option>
@@ -391,6 +418,21 @@
                     <option value="write-sharded-hashed">Write (sharded / hashed)</option>
                     <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
                 </select>
+            </div>
+        </div>
+
+        <div class="metrics-info" id="metricsInfo">
+            <div class="metric-card">
+                <div class="metric-label">MongoDB Connections</div>
+                <input type="number" id="connectionsInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Threads per Connection</div>
+                <input type="number" id="goroutinesInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Write Batch Size</div>
+                <input type="number" id="batchSizeInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
             </div>
         </div>
 
@@ -527,12 +569,12 @@
             var seriesColorsIndex = 0;
 
 
-            for (const [shardName, shardData] of Object.entries(metrics.opsCount)) {
+            var shardnum = 1;
+            for (var [shardName, shardData] of Object.entries(metrics.opsCount)) {
                 
                 //Rename shards to make more readable
                 //Note - in the Instruqt environment, the shard names are sh1, sh2, sh3, sh4. 
                 // sh1 is the config shard and isn't shown in the UI.
-                let shardnum = 1;
                 switch (shardName) {
                     case "Application Load":
                         shardName = "Application Operations";
@@ -620,7 +662,7 @@
             chart.data.datasets = [...updatedChartData];
             chart.data.labels = [...dataStore.labels];
             totalsDataSet = {
-                label: "Total Operations",
+                label: "Total Database Operations",
                 data: [],
                 borderColor: 'rgb(' + seriesColors[seriesColorsIndex] + ')',
                 backgroundColor: 'rgba(' + seriesColors[seriesColorsIndex] + ', 0.1)',
@@ -630,7 +672,7 @@
             for (i =0; i < chart.data.datasets[0].data.length; i++) {
                 totalsDataSet.data.push(0);
                 for (y =0; y < chart.data.datasets.length; y++) {
-                    if (chart.data.datasets[y].label !== "Application Load") {
+                    if (chart.data.datasets[y].label !== "Application Operations") {
                         totalsDataSet.data[i] += chart.data.datasets[y].data[i];
                     }
                 }
@@ -705,6 +747,8 @@
                 ws.onopen = function() {
                     setStatus('connected', 'Connected');
                     isFirstMessage = true; // Flag to skip chart update for first message (has config but may have stale metrics)
+                    // Show operation type selector when connected
+                    document.getElementById('operationTypeSelector').classList.add('show');
                     // Enable inputs when connected
                     document.getElementById('connectionsInput').disabled = false;
                     document.getElementById('goroutinesInput').disabled = false;
@@ -748,6 +792,8 @@
                         setStatus('disconnected', 'Disconnected');
                         document.getElementById('connectBtn').disabled = false;
                         document.getElementById('disconnectBtn').disabled = true;
+                        // Hide operation type selector when disconnected
+                        document.getElementById('operationTypeSelector').classList.remove('show');
                         // Disable inputs when disconnected
                         document.getElementById('connectionsInput').disabled = true;
                         document.getElementById('goroutinesInput').disabled = true;
@@ -767,6 +813,8 @@
                 setStatus('disconnected', 'Connection Failed');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
+                // Hide operation type selector on connection failure
+                document.getElementById('operationTypeSelector').classList.remove('show');
                 // Disable inputs on connection failure
                 document.getElementById('connectionsInput').disabled = true;
                 document.getElementById('goroutinesInput').disabled = true;
@@ -788,6 +836,9 @@
                 setStatus('disconnected', 'Disconnected');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
+                
+                // Hide operation type selector when disconnected
+                document.getElementById('operationTypeSelector').classList.remove('show');
                 
                 // Disable inputs when disconnected
                 document.getElementById('connectionsInput').disabled = true;
