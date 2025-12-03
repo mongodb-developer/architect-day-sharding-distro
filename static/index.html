@@ -527,7 +527,34 @@
             var seriesColorsIndex = 0;
 
 
-            for (const [shardName, shardData] of Object.entries(metrics.opsCount)) {  
+            for (const [shardName, shardData] of Object.entries(metrics.opsCount)) {
+                
+                //Rename shards to make more readable
+                //Note - in the Instruqt environment, the shard names are sh1, sh2, sh3, sh4. 
+                // sh1 is the config shard and isn't shown in the UI.
+                let shardnum = 1;
+                switch (shardName) {
+                    case "Application Load":
+                        shardName = "Application Operations";
+                        break;
+                    case "Total Load":
+                        shardName = "Total Database Operations";
+                        break;
+                    case "sh2":
+                        shardName = "Shard 1";
+                        break;
+                    case "sh3":
+                        shardName = "Shard 2";
+                        break;
+                    case "sh4":
+                        shardName = "Shard 3";
+                        break;
+                    default:
+                        shardName = "Shard " + shardnum;
+                        shardnum++;
+                        break;
+                }
+
                 console.log("Shard:", shardName);  
                 console.log("opCounts:", shardData.opCounts);  
                 console.log("Connections:", shardData.connections);
@@ -549,7 +576,7 @@
                 switch (shardData.operationType) {
                     case 'read-unsharded':
                     case 'read-sharded-undirected':
-                    case'read-sharded-directed':
+                    case 'read-sharded-directed':
                     case 'read-range-unsharded':
                     case 'read-range-sharded-directed':
                     case 'read-range-sharded-undirected':
