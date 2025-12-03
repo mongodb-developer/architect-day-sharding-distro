@@ -146,6 +146,25 @@
             display: grid;
         }
 
+        .operation-type-selector {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .operation-type-selector.show {
+            display: block;
+        }
+
+        .operation-type-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+        }
+
         .btn-admin {
             background: #6c757d;
             color: white;
@@ -361,20 +380,8 @@
             <div class="error-message" id="errorMessage"></div>
         </div>
 
-        <div class="metrics-info" id="metricsInfo">
-            <div class="metric-card">
-                <div class="metric-label">MongoDB Connections</div>
-                <input type="number" id="connectionsInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Threads per Connection</div>
-                <input type="number" id="goroutinesInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Write Batch Size</div>
-                <input type="number" id="batchSizeInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-            </div>
-            <div class="metric-card">
+        <div class="operation-type-selector" id="operationTypeSelector">
+            <div class="operation-type-card">
                 <div class="metric-label">Operation Type</div>
                 <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
                     <option value="read-unsharded">Read (unsharded)</option>
@@ -391,6 +398,21 @@
                     <option value="write-sharded-hashed">Write (sharded / hashed)</option>
                     <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
                 </select>
+            </div>
+        </div>
+
+        <div class="metrics-info" id="metricsInfo">
+            <div class="metric-card">
+                <div class="metric-label">MongoDB Connections</div>
+                <input type="number" id="connectionsInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Threads per Connection</div>
+                <input type="number" id="goroutinesInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Write Batch Size</div>
+                <input type="number" id="batchSizeInput" min="1" value="1" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
             </div>
         </div>
 
@@ -705,6 +727,8 @@
                 ws.onopen = function() {
                     setStatus('connected', 'Connected');
                     isFirstMessage = true; // Flag to skip chart update for first message (has config but may have stale metrics)
+                    // Show operation type selector when connected
+                    document.getElementById('operationTypeSelector').classList.add('show');
                     // Enable inputs when connected
                     document.getElementById('connectionsInput').disabled = false;
                     document.getElementById('goroutinesInput').disabled = false;
@@ -748,6 +772,8 @@
                         setStatus('disconnected', 'Disconnected');
                         document.getElementById('connectBtn').disabled = false;
                         document.getElementById('disconnectBtn').disabled = true;
+                        // Hide operation type selector when disconnected
+                        document.getElementById('operationTypeSelector').classList.remove('show');
                         // Disable inputs when disconnected
                         document.getElementById('connectionsInput').disabled = true;
                         document.getElementById('goroutinesInput').disabled = true;
@@ -767,6 +793,8 @@
                 setStatus('disconnected', 'Connection Failed');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
+                // Hide operation type selector on connection failure
+                document.getElementById('operationTypeSelector').classList.remove('show');
                 // Disable inputs on connection failure
                 document.getElementById('connectionsInput').disabled = true;
                 document.getElementById('goroutinesInput').disabled = true;
@@ -788,6 +816,9 @@
                 setStatus('disconnected', 'Disconnected');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
+                
+                // Hide operation type selector when disconnected
+                document.getElementById('operationTypeSelector').classList.remove('show');
                 
                 // Disable inputs when disconnected
                 document.getElementById('connectionsInput').disabled = true;
