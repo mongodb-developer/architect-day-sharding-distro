@@ -32,9 +32,6 @@ for (const collection of collections) {
     if (collection.endsWith("_dch")) {
         col.createIndex({ dateCreated: "hashed" })
         adminDB.runCommand({ shardCollection: "architect_day." + collection, key: { dateCreated: "hashed" } })
-        //adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: MinKey() }, max: { dateCreated: Long('-3074457345618258602')}, toShard: "sh2" })
-        //adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: Long('-3074457345618258602')}, max: { dateCreated: Long('3074457345618258602')}, toShard: "sh3" })
-        //adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: Long('3074457345618258602')}, max: { dateCreated: MaxKey() }, toShard: "sh4" })
     }
 }
 
