@@ -150,7 +150,6 @@
             padding: 20px 30px;
             background: #f8f9fa;
             border-bottom: 1px solid #e0e0e0;
-            display: none;
         }
 
         .operation-type-selector.show {
@@ -364,10 +363,6 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🚀 MongoDB Sharding Performance Monitor</h1>
-            <p>Real-time performance monitoring for sharded MongoDB Atlas clusters</p>
-        </div>
 
         <div class="controls">
             <div class="connection-form">
@@ -375,50 +370,28 @@
                 <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
                 <button class="btn btn-info" id="infoBtn" onclick="showOperationInfo()" disabled>Info</button>
                 <button class="btn btn-admin" id="adminBtn" onclick="showAdminPrompt()">Admin</button>
-                <div class="operation-type-selector" id="operationTypeSelectorTemp">
-                    <div class="operation-type-card">
-                        <div class="metric-label">Operation Type</div>
-                        <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-                            <option value="read-unsharded">Read (unsharded)</option>
-                            <option value="read-sharded-undirected">Read (sharded / undirected)</option>
-                            <option value="read-sharded-directed">Read (sharded / directed)</option>
-                            <option value="read-range-unsharded">Read Range (unsharded)</option>
-                            <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
-                            <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
-                            <option value="update-unsharded">Update (unsharded)</option>
-                            <option value="update-sharded-undirected">Update (sharded / undirected)</option>
-                            <option value="update-sharded-directed">Update (sharded / directed)</option>
-                            <option value="write-unsharded">Write (unsharded)</option>
-                            <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
-                            <option value="write-sharded-hashed">Write (sharded / hashed)</option>
-                            <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
-                        </select>
-                    </div>
+                <div class="operation-type-selector" id="operationTypeSelector">
+                <div class="operation-type-card">
+                    <div class="metric-label">Operation Type</div>
+                    <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
+                        <option value="read-unsharded">Read (unsharded)</option>
+                        <option value="read-sharded-undirected">Read (sharded / undirected)</option>
+                        <option value="read-sharded-directed">Read (sharded / directed)</option>
+                        <option value="read-range-unsharded">Read Range (unsharded)</option>
+                        <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
+                        <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
+                        <option value="update-unsharded">Update (unsharded)</option>
+                        <option value="update-sharded-undirected">Update (sharded / undirected)</option>
+                        <option value="update-sharded-directed">Update (sharded / directed)</option>
+                        <option value="write-unsharded">Write (unsharded)</option>
+                        <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
+                        <option value="write-sharded-hashed">Write (sharded / hashed)</option>
+                        <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
+                    </select>
                 </div>
             </div>
-            <div class="status" id="status">Disconnected</div>
-            <div class="error-message" id="errorMessage"></div>
-        </div>
-
-        <div class="operation-type-selector" id="operationTypeSelector">
-            <div class="operation-type-card">
-                <div class="metric-label">Operation Type</div>
-                <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
-                    <option value="read-unsharded">Read (unsharded)</option>
-                    <option value="read-sharded-undirected">Read (sharded / undirected)</option>
-                    <option value="read-sharded-directed">Read (sharded / directed)</option>
-                    <option value="read-range-unsharded">Read Range (unsharded)</option>
-                    <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
-                    <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
-                    <option value="update-unsharded">Update (unsharded)</option>
-                    <option value="update-sharded-undirected">Update (sharded / undirected)</option>
-                    <option value="update-sharded-directed">Update (sharded / directed)</option>
-                    <option value="write-unsharded">Write (unsharded)</option>
-                    <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
-                    <option value="write-sharded-hashed">Write (sharded / hashed)</option>
-                    <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
-                </select>
             </div>
+            <div class="error-message" id="errorMessage"></div>
         </div>
 
         <div class="metrics-info" id="metricsInfo">
@@ -710,12 +683,6 @@
             return;
         }
 
-        function setStatus(status, message) {
-            const statusEl = document.getElementById('status');
-            statusEl.className = 'status status-' + status;
-            statusEl.textContent = message;
-        }
-
         function showError(message) {
             const errorEl = document.getElementById('errorMessage');
             errorEl.textContent = message;
@@ -736,7 +703,6 @@
             const url = getWebSocketURL();
             console.log('Connecting to:', url);
 
-            setStatus('connecting', 'Connecting...');
             document.getElementById('connectBtn').disabled = true;
             document.getElementById('disconnectBtn').disabled = false;
             document.getElementById('errorMessage').classList.remove('show');
@@ -745,10 +711,7 @@
                 ws = new WebSocket(url);
 
                 ws.onopen = function() {
-                    setStatus('connected', 'Connected');
                     isFirstMessage = true; // Flag to skip chart update for first message (has config but may have stale metrics)
-                    // Show operation type selector when connected
-                    document.getElementById('operationTypeSelector').classList.add('show');
                     // Enable inputs when connected
                     document.getElementById('connectionsInput').disabled = false;
                     document.getElementById('goroutinesInput').disabled = false;
@@ -789,11 +752,10 @@
                 ws.onclose = function() {
                     // Only update UI if disconnect wasn't already called
                     if (ws !== null) {
-                        setStatus('disconnected', 'Disconnected');
                         document.getElementById('connectBtn').disabled = false;
                         document.getElementById('disconnectBtn').disabled = true;
-                        // Hide operation type selector when disconnected
-                        document.getElementById('operationTypeSelector').classList.remove('show');
+                        // Disable operation type selector when disconnected
+                        document.getElementById('operationTypeSelector').disabled = true;
                         // Disable inputs when disconnected
                         document.getElementById('connectionsInput').disabled = true;
                         document.getElementById('goroutinesInput').disabled = true;
@@ -810,11 +772,10 @@
                     console.log('WebSocket disconnected');
                 };
             } catch (e) {
-                setStatus('disconnected', 'Connection Failed');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
-                // Hide operation type selector on connection failure
-                document.getElementById('operationTypeSelector').classList.remove('show');
+                // Disable operation type selector on connection failure
+                document.getElementById('operationTypeSelector').disabled = true;
                 // Disable inputs on connection failure
                 document.getElementById('connectionsInput').disabled = true;
                 document.getElementById('goroutinesInput').disabled = true;
@@ -833,12 +794,11 @@
         function disconnect() {
             if (ws) {
                 // Update UI immediately
-                setStatus('disconnected', 'Disconnected');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
                 
-                // Hide operation type selector when disconnected
-                document.getElementById('operationTypeSelector').classList.remove('show');
+                // Disable operation type selector when disconnected
+                document.getElementById('operationTypeSelector').disabled = true;
                 
                 // Disable inputs when disconnected
                 document.getElementById('connectionsInput').disabled = true;
