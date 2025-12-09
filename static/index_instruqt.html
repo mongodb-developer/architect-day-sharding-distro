@@ -514,12 +514,11 @@
         }
 
         function calculateMovingAverage(array) {
-                
             // Calculate average of the values in the array
+            if (array.length === 0) return 0;
             const sum = array.reduce((a, b) => a + b, 0);
-            const average = sum / array.length
+            const average = sum / array.length;
             return average;
-
         }
 
 
@@ -579,6 +578,7 @@
 
                 dataStore[shardName] ??= {};  
                 dataStore[shardName].operations ??= [];
+                dataStore[shardName].rawOperations ??= []; // Buffer for raw values (rolling 5-second window)
                 if (!dataStore[shardName].borderColor) {
                     dataStore[shardName].borderColor = 'rgb(' + seriesColors[seriesColorsIndex] + ')';
                     dataStore[shardName].backgroundColor = 'rgba(' + seriesColors[seriesColorsIndex] + ', 0.1)';
@@ -588,6 +588,8 @@
                     seriesColorsIndex = 0;
                 }
  
+                // Get the raw value based on operation type
+                let rawValue = 0;
                 switch (shardData.operationType) {
                     case 'read-unsharded':
                     case 'read-sharded-undirected':
@@ -596,26 +598,35 @@
                     case 'read-range-sharded-directed':
                     case 'read-range-sharded-undirected':
                         chart.options.scales.y.title.text = 'Reads per Second';
-                        dataStore[shardName].operations.push(shardData.opCounts.Queries);
+                        rawValue = shardData.opCounts.Queries;
                         break;
                     case 'update-unsharded':
                     case 'update-sharded-undirected':
                     case 'update-sharded-directed':
                     chart.options.scales.y.title.text = 'Updates per Second';
-                        dataStore[shardName].operations.push(shardData.opCounts.Updates);
+                        rawValue = shardData.opCounts.Updates;
                         break;
                     case 'write-unsharded':
                     case 'write-sharded-equal':
                     case 'write-sharded-hashed':
                     case 'write-sharded-monotonic':
                         chart.options.scales.y.title.text = 'Inserts per Second';
-                        dataStore[shardName].operations.push(shardData.opCounts.Inserts);
+                        rawValue = shardData.opCounts.Inserts;
                         break;
                     default:
-                        dataStore[shardName].operations.push(0);
+                        rawValue = 0;
                         break;
                 }
 
+                // Add raw value to the rolling buffer (keep last 5 values)
+                dataStore[shardName].rawOperations.push(rawValue);
+                if (dataStore[shardName].rawOperations.length > 5) {
+                    dataStore[shardName].rawOperations.shift();
+                }
+
+                // Calculate rolling 5-second average
+                const averageValue = calculateMovingAverage(dataStore[shardName].rawOperations);
+                dataStore[shardName].operations.push(averageValue);
 
                 // Keep only last 60 data points
                 if (dataStore[shardName].operations.length > maxDataPoints) {
