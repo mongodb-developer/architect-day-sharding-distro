@@ -455,7 +455,6 @@
         let ws = null;
         let chart = null;
         let isFirstMessage = false;
-        let isAuthenticated = false;
         const maxDataPoints = 60; // 60 seconds of data
         const dataStore = {
             labels: [],
@@ -739,8 +738,6 @@
                         // Handle control responses
                         if (data.type === 'updateResponse') {
                             updateSettings(data);
-                        } else if (data.type === 'passwordResponse') {
-                            handlePasswordResponse(data);
                         } else {
                             if (!isFirstMessage) {
                                 addDataPoint(data);
@@ -773,8 +770,7 @@
                         document.getElementById('batchSizeInput').disabled = true;
                         document.getElementById('operationTypeSelect').disabled = true;
                         document.getElementById('infoBtn').disabled = true;
-                        // Reset authentication state
-                        isAuthenticated = false;
+                        // Reset metrics section visibility
                         const metricsInfo = document.getElementById('metricsInfo');
                         metricsInfo.classList.remove('show');
                         document.getElementById('adminBtn').textContent = 'Admin';
@@ -791,13 +787,12 @@
                 document.getElementById('connectionsInput').disabled = true;
                 document.getElementById('goroutinesInput').disabled = true;
                 document.getElementById('batchSizeInput').disabled = true;
-                document.getElementById('operationTypeSelect').disabled = true;
-                document.getElementById('infoBtn').disabled = true;
-                // Reset authentication state
-                isAuthenticated = false;
-                const metricsInfo = document.getElementById('metricsInfo');
-                metricsInfo.classList.remove('show');
-                document.getElementById('adminBtn').textContent = 'Admin';
+                        document.getElementById('operationTypeSelect').disabled = true;
+                        document.getElementById('infoBtn').disabled = true;
+                        // Reset metrics section visibility
+                        const metricsInfo = document.getElementById('metricsInfo');
+                        metricsInfo.classList.remove('show');
+                        document.getElementById('adminBtn').textContent = 'Admin';
                 showError('Failed to create WebSocket: ' + e.message);
             }
         }
@@ -818,8 +813,7 @@
                 document.getElementById('operationTypeSelect').disabled = true;
                 document.getElementById('infoBtn').disabled = true;
                 
-                // Reset authentication state
-                isAuthenticated = false;
+                // Reset metrics section visibility
                 const metricsInfo = document.getElementById('metricsInfo');
                 metricsInfo.classList.remove('show');
                 document.getElementById('adminBtn').textContent = 'Admin';
@@ -961,27 +955,17 @@
         }
 
         function showAdminPrompt() {
-            if (isAuthenticated) {
-                // Already authenticated, hide metrics-info
-                isAuthenticated = false;
-                const metricsInfo = document.getElementById('metricsInfo');
+            const metricsInfo = document.getElementById('metricsInfo');
+            
+            if (metricsInfo.classList.contains('show')) {
+                // Hide metrics-info
                 metricsInfo.classList.remove('show');
                 document.getElementById('adminBtn').textContent = 'Admin';
-                showError('Metrics section hidden');
-                return;
+            } else {
+                // Show metrics-info
+                metricsInfo.classList.add('show');
+                document.getElementById('adminBtn').textContent = 'Hide Metrics';
             }
-
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                showError('Please connect first');
-                return;
-            }
-
-            // Show password modal
-            const passwordModal = document.getElementById('passwordModal');
-            const passwordInput = document.getElementById('passwordInput');
-            passwordModal.classList.add('show');
-            passwordInput.value = '';
-            passwordInput.focus();
         }
 
         function closePasswordModal() {
