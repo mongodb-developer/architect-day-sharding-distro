@@ -618,13 +618,13 @@
                         break;
                 }
 
-                // Add raw value to the rolling buffer (keep last 5 values)
+                // Add raw value to the rolling buffer (keep last 10 values)
                 dataStore[shardName].rawOperations.push(rawValue);
-                if (dataStore[shardName].rawOperations.length > 5) {
+                if (dataStore[shardName].rawOperations.length > 10) {
                     dataStore[shardName].rawOperations.shift();
                 }
 
-                // Calculate rolling 5-second average
+                // Calculate rolling 10-second average
                 const averageValue = calculateMovingAverage(dataStore[shardName].rawOperations);
                 dataStore[shardName].operations.push(averageValue);
 
