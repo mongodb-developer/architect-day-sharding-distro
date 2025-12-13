@@ -15,12 +15,16 @@ When using this operation type, the application will:
 
 ## Query Types
 
-The application performs the following types of queries:
+The application performs the following query:
 
-- **Recent Orders**: All orders created in the last 24 hours
-- **Customer Orders**: All orders for a random customer ID with a specific status
-- **Product Count**: Count of all orders received for a random product ID within a given date range
-- **Product Grouping**: Count of all orders, grouped by productID, within a given date range
+```json
+db.orders.find({
+	customerID: 47239
+	orderStatus: 'shipped'
+})
+```
+In each iteration of the query, customerID and orderStatus are set to random values from the range of avaialble values.
+
 
 ## Performance Characteristics
 
@@ -39,5 +43,4 @@ The application performs the following types of queries:
 
 - If your data grows beyond a single shard's capacity, you'll need to migrate to a sharded collection
 - All read operations are concentrated on one shard, which can become a bottleneck
-- No automatic load distribution across multiple shards
 

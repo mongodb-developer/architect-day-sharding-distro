@@ -15,17 +15,22 @@ When using this operation type:
 
 ## Query Types
 
-The application performs queries that include shard key filters:
+The application performs the following query against a collection sharded by the customerID field, which is part of the query filter:
 
-- **Shard Key Targeted Queries**: Queries that include the shard key value in the filter
-- **Range Queries**: Queries with shard key ranges that target specific shards
-- **Equality Queries**: Queries with exact shard key matches
+```json
+db.orders.find({
+	customerID: 47239
+	orderStatus: 'shipped'
+})
+```
+In each iteration of the query, customerID and orderStatus are set to random values from the range of avaialble values.
+
+![Shard Read Directed.png](../Excalidraw/Shard%20Read%20Directed.png)
 
 ## Performance Characteristics
 
 - **Latency**: Lower than undirected queries because only relevant shards are queried
-- **Throughput**: High, as queries are targeted and efficient
-- **Network Overhead**: Minimal, as queries are only sent to necessary shards
+- **Throughput**: High, as queries are targeted, making efficient use of the available resources
 - **Resource Usage**: Only relevant shards process queries
 
 ## Use Cases

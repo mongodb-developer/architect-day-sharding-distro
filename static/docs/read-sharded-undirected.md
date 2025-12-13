@@ -15,32 +15,37 @@ When using this operation type:
 
 ## Query Types
 
-The application performs the following types of queries (without shard key filters):
+The application performs the following query against a collection sharded by the dateCreated field, which is not part of the query filter:
 
-- **Recent Orders**: All orders created in the last 24 hours (no shard key filter)
-- **Customer Orders**: All orders for a random customer ID with a specific status (no shard key filter)
-- **Product Count**: Count of all orders received for a random product ID within a given date range (no shard key filter)
-- **Product Grouping**: Count of all orders, grouped by productID, within a given date range (no shard key filter)
+```json
+db.orders.find({
+	customerID: 47239
+	orderStatus: 'shipped'
+})
+```
+In each iteration of the query, customerID and orderStatus are set to random values from the range of avaialble values.
+
+![Shard Read UnDirected.png](../Excalidraw/Shard%20Read%20UnDirected.png)
 
 ## Performance Characteristics
 
 - **Latency**: Higher than directed queries because all shards must be queried
 - **Throughput**: Can utilize all shards, but with overhead from broadcasting
-- **Network Overhead**: Significant network traffic as queries are sent to all shards
+- **Network Overhead**: Increased network traffic as queries are sent to all shards
 - **Resource Usage**: All shards process queries, even if they don't contain relevant data
 
 ## Use Cases
 
-- Queries that cannot include the shard key (e.g., range queries across shards)
+- Queries that cannot include the shard key
 - Analytics queries that need to aggregate data from all shards
 - Ad-hoc queries where the shard key value is unknown
-- Reporting queries that scan the entire collection
+- Low-frequency queries
 
 ## Considerations
 
 - **Scatter-Gather Pattern**: This is a scatter-gather operation, which can be expensive
 - **Performance Impact**: Broadcasting to all shards increases latency and resource usage
-- **Shard Key Design**: Poor shard key design can make undirected queries very slow
+- **Shard Key Design**: Poor shard key design can unintentionally result in undirected queries
 - **Index Usage**: Ensure proper indexes exist on non-shard-key fields used in queries
 
 ## Best Practices

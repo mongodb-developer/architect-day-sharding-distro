@@ -56,29 +56,13 @@ When using this operation type:
 - **Single Point of Load**: All write operations are concentrated on one shard
 - **Write Capacity**: Limited by the single shard's write capacity
 - **No Horizontal Scaling**: Cannot distribute write load across multiple shards
-- **Order Number Generation**: Monotonically increasing order numbers can create hotspots
-- **Migration Complexity**: Migrating to sharded collection requires careful planning
+- **Batch Inserts**: Batch inserts reduce database call setup / teardown costs.
 
-## Write Batch Size
-
-The Write Batch Size determines how many documents are inserted in a single `InsertMany` operation:
-
-- **Small batches (1-10)**: Lower latency per operation, more network round trips
-- **Medium batches (10-100)**: Balanced performance
-- **Large batches (100+)**: Higher throughput, but may hit document size limits
-
-## Best Practices
-
-- **Batch Inserts**: Use appropriate batch sizes to optimize throughput
-- **Index Management**: Ensure proper indexes exist for query performance
-- **Write Concern**: Use appropriate write concern for data durability
-- **Monitor Performance**: Track write performance and shard capacity
-- **Consider Sharding**: Plan for sharding if write volume will exceed single shard capacity
 
 ## Performance Optimization
 
 - Use batch inserts to reduce network round trips
 - Monitor write queue depth and latency
 - Ensure adequate write capacity on the shard
-- Consider write concern settings for durability vs. performance trade-offs
+- Consider sharding if single-cluster limits are being reached
 

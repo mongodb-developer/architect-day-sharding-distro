@@ -8,10 +8,18 @@ This operation type performs write (insert) operations on a **sharded** MongoDB 
 
 When using this operation type:
 
-1. The application generates documents with a shard key designed for equal distribution
-2. Documents are inserted in batches (configurable via Write Batch Size)
-3. MongoDB's query router (mongos) uses the shard key to route writes to shards
-4. With proper shard key design, writes are distributed evenly across all shards
+1. The application generates documents with the following structure:
+   - `dateCreated`: Current timestamp
+   - `dateUpdated`: Current timestamp
+   - `customerID`: Random integer between 1 and 100,000
+   - `productNumber`: Random integer between 1 and 10,000
+   - `orderNumber`: Monotonically increasing integer starting at 1000
+   - `orderValue`: Random monetary value with two decimal places
+   - `orderStatus`: "received"
+2. The `customerID` field is used as the shard key.
+3. Documents are inserted in batches (configurable via Write Batch Size)
+4. MongoDB's query router (mongos) uses the shard key to route writes to shards
+5. With randomly assinged customeriD values, writes are distributed evenly across all shards
 
 ## Document Structure
 
@@ -34,7 +42,7 @@ For equal distribution, the shard key should:
 - Have high cardinality (many unique values)
 - Have good distribution of values
 - Avoid hotspots (concentrated writes to specific shards)
-- Examples: `customerID`, `productNumber`, or a hash of these fields
+
 
 ## Performance Characteristics
 
@@ -42,7 +50,6 @@ For equal distribution, the shard key should:
 - **Throughput**: High, as writes are distributed across all shards
 - **Scalability**: Excellent - performance improves as you add shards
 - **Load Balancing**: Writes are evenly distributed across shards
-- **Write Conflicts**: Lower chance of conflicts with distributed writes
 
 ## Use Cases
 
