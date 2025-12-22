@@ -391,18 +391,18 @@
                     <div class="metric-label">Operation Type</div>
                     <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
                         <option value="read-unsharded">Read (unsharded)</option>
-                        <option value="read-sharded-undirected">Read (sharded / undirected)</option>
                         <option value="read-sharded-directed">Read (sharded / directed)</option>
+                        <option value="read-sharded-undirected">Read (sharded / undirected)</option>
                         <!--<option value="read-range-unsharded">Read Range (unsharded)</option>-->
-                        <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
-                        <option value="read-range-sharded-undirected">Read Range (sharded / undirected)</option>
                         <!--<option value="update-unsharded">Update (unsharded)</option>
                         <option value="update-sharded-undirected">Update (sharded / undirected)</option>
-                        <option value="update-sharded-directed">Update (sharded / directed)</option>-->
-                        <option value="write-unsharded">Write (unsharded)</option>
+                        <option value="update-sharded-directed">Update (sharded / directed)</option>
+                        <option value="write-unsharded">Write (unsharded)</option>-->
                         <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
-                        <option value="write-sharded-hashed">Write (sharded / hashed)</option>
                         <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
+                        <option value="write-sharded-hashed">Write (sharded / hashed)</option>
+                        <option value="read-range-sharded-undirected">Read Range (sharded / undirected-hashed)</option>
+                        <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
                     </select>
                 </div>
             </div>
@@ -743,7 +743,7 @@
                     document.getElementById('goroutinesInput').disabled = false;
                     document.getElementById('batchSizeInput').disabled = false;
                     document.getElementById('operationTypeSelect').disabled = false;
-                    document.getElementById('infoBtn').disabled = false;
+                    //document.getElementById('infoBtn').disabled = false;
                     console.log('WebSocket connected');
                 };
 
@@ -785,7 +785,7 @@
                         document.getElementById('goroutinesInput').disabled = true;
                         document.getElementById('batchSizeInput').disabled = true;
                         document.getElementById('operationTypeSelect').disabled = true;
-                        document.getElementById('infoBtn').disabled = true;
+                        //document.getElementById('infoBtn').disabled = true;
                         // Reset metrics section visibility
                         const metricsInfo = document.getElementById('metricsInfo');
                         metricsInfo.classList.remove('show');
@@ -804,7 +804,7 @@
                 document.getElementById('goroutinesInput').disabled = true;
                 document.getElementById('batchSizeInput').disabled = true;
                         document.getElementById('operationTypeSelect').disabled = true;
-                        document.getElementById('infoBtn').disabled = true;
+                        //document.getElementById('infoBtn').disabled = true;
                         // Reset metrics section visibility
                         const metricsInfo = document.getElementById('metricsInfo');
                         metricsInfo.classList.remove('show');
@@ -827,7 +827,7 @@
                 document.getElementById('goroutinesInput').disabled = true;
                 document.getElementById('batchSizeInput').disabled = true;
                 document.getElementById('operationTypeSelect').disabled = true;
-                document.getElementById('infoBtn').disabled = true;
+                //document.getElementById('infoBtn').disabled = true;
                 
                 // Reset metrics section visibility
                 const metricsInfo = document.getElementById('metricsInfo');
