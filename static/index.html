@@ -214,6 +214,21 @@
             display: block;
         }
 
+        .warning-message {
+            margin-top: 15px;
+            padding: 12px;
+            background: #fff3cd;
+            color: #856404;
+            border-radius: 8px;
+            border: 1px solid #ffeeba;
+            display: none;
+            font-weight: 600;
+        }
+
+        .warning-message.show {
+            display: block;
+        }
+
         /* Modal styles */
         .modal {
             display: none;
@@ -375,6 +390,7 @@
             </div>
             <div class="status status-disconnected" id="status">Disconnected</div>
             <div class="error-message" id="errorMessage"></div>
+            <div class="warning-message" id="warningMessage"></div>
         </div>
 
         <div class="metrics-info" id="metricsInfo">
@@ -407,6 +423,9 @@
                     <option value="read-range-sharded-undirected">Read Range (sharded / undirected-hashed)</option>
                     <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
                 </select>
+            </div>
+            <div class="metric-card">
+                <button class="btn btn-info" id="connectionsBtn" onclick="showConnectionsModal()" style="width: 100%; margin-top: 28px;">Connections</button>
             </div>
         </div>
 
@@ -451,12 +470,41 @@
         </div>
     </div>
 
+    <!-- Modal for connections configuration -->
+    <div id="connectionsModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Connection Configuration</h2>
+                <span class="close" onclick="closeConnectionsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="connectionsForm" onsubmit="submitConnections(event)">
+                    <label for="websocketUriInput" style="display: block; margin-bottom: 10px; font-weight: 600; color: #d0d0d0;">Web socket URI:</label>
+                    <input type="text" id="websocketUriInput" autocomplete="off" style="width: 100%; padding: 12px; font-size: 16px; border: 2px solid #444; border-radius: 6px; margin-bottom: 20px; box-sizing: border-box; background-color: #2d2d2d; color: #d0d0d0;" placeholder="ws://localhost:8080/ws" autofocus>
+                    
+                    <label for="mongoConnectionStringInput" style="display: block; margin-bottom: 10px; font-weight: 600; color: #d0d0d0;">MongoDB Connection String:</label>
+                    <input type="text" id="mongoConnectionStringInput" autocomplete="off" style="width: 100%; padding: 12px; font-size: 16px; border: 2px solid #444; border-radius: 6px; margin-bottom: 20px; box-sizing: border-box; background-color: #2d2d2d; color: #d0d0d0;" placeholder="mongodb://localhost:27017">
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-disconnect" onclick="closeConnectionsModal()" style="min-width: 100px;">Cancel</button>
+                        <button type="submit" class="btn btn-connect" style="min-width: 100px;">OK</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script>
         let ws = null;
         let chart = null;
         let isFirstMessage = false;
         let isAuthenticated = false;
+        let customWebSocketURI = null; // Custom WebSocket URI set by user
+        let previousWebSocketURI = null; // Previous WebSocket URI for reverting on failure
+        let isConnectingWithNewURI = false; // Flag to track if we're connecting with a newly changed URI
+        let warningShownAt = null; // Timestamp when warning was shown
+        let pendingMongoDBURI = null; // MongoDB URI to send after successful WebSocket connection
         const maxDataPoints = 60; // 60 seconds of data
         const dataStore = {
             labels: [],
@@ -646,7 +694,7 @@
             chart.data.datasets = [...updatedChartData];
             chart.data.labels = [...dataStore.labels];
             totalsDataSet = {
-                label: "Total Operations",
+                label: "Total Database Operations",
                 data: [],
                 borderColor: 'rgb(' + seriesColors[seriesColorsIndex] + ')',
                 backgroundColor: 'rgba(' + seriesColors[seriesColorsIndex] + ', 0.1)',
@@ -702,6 +750,9 @@
 
         function showError(message) {
             const errorEl = document.getElementById('errorMessage');
+            const warningEl = document.getElementById('warningMessage');
+            // Hide warning if showing error
+            warningEl.classList.remove('show');
             errorEl.textContent = message;
             errorEl.classList.add('show');
             setTimeout(() => {
@@ -709,8 +760,25 @@
             }, 5000);
         }
 
+        function showWarning(message) {
+            const warningEl = document.getElementById('warningMessage');
+            const errorEl = document.getElementById('errorMessage');
+            // Hide error if showing warning
+            errorEl.classList.remove('show');
+            warningEl.textContent = message;
+            warningEl.classList.add('show');
+            warningShownAt = Date.now(); // Record when warning was shown
+            setTimeout(() => {
+                warningEl.classList.remove('show');
+                warningShownAt = null;
+            }, 8000); // Show warnings for 8 seconds to give user time to read
+        }
+
         function getWebSocketURL() {
-            // Derive WebSocket URL from current page URL
+            // Use custom WebSocket URI if set, otherwise derive from current page URL
+            if (customWebSocketURI) {
+                return customWebSocketURI;
+            }
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.host;
             return `${protocol}//${host}/ws`;
@@ -724,6 +792,11 @@
             document.getElementById('connectBtn').disabled = true;
             document.getElementById('disconnectBtn').disabled = false;
             document.getElementById('errorMessage').classList.remove('show');
+            // Only clear warning if it's been shown for at least 3 seconds (to prevent immediate clearing)
+            const warningEl = document.getElementById('warningMessage');
+            if (warningShownAt === null || (Date.now() - warningShownAt) > 3000) {
+                warningEl.classList.remove('show');
+            }
 
             try {
                 ws = new WebSocket(url);
@@ -731,6 +804,26 @@
                 ws.onopen = function() {
                     setStatus('connected', 'Connected');
                     isFirstMessage = true; // Flag to skip chart update for first message (has config but may have stale metrics)
+                    // Clear the flag since connection succeeded
+                    isConnectingWithNewURI = false;
+                    
+                    // If there's a pending MongoDB URI, send it now that connection is established
+                    if (pendingMongoDBURI !== null) {
+                        const message = {
+                            type: 'updateMongoDBURI',
+                            mongoDBURI: pendingMongoDBURI
+                        };
+                        try {
+                            ws.send(JSON.stringify(message));
+                            console.log('Sent pending MongoDB URI update request');
+                            pendingMongoDBURI = null; // Clear after sending
+                        } catch (e) {
+                            console.error('Failed to send pending MongoDB URI: ' + e.message);
+                            showError('Failed to send MongoDB URI: ' + e.message);
+                            pendingMongoDBURI = null; // Clear on error
+                        }
+                    }
+                    
                     // Enable inputs when connected
                     document.getElementById('connectionsInput').disabled = false;
                     document.getElementById('goroutinesInput').disabled = false;
@@ -765,10 +858,31 @@
 
                 ws.onerror = function(error) {
                     console.error('WebSocket error:', error);
-                    showError('WebSocket connection error. Check the URL and ensure the server is running.');
+                    // If we were connecting with a new URI and it failed, revert to previous
+                    if (isConnectingWithNewURI) {
+                        customWebSocketURI = previousWebSocketURI;
+                        previousWebSocketURI = null;
+                        isConnectingWithNewURI = false;
+                        // Clear pending MongoDB URI since connection failed
+                        pendingMongoDBURI = null;
+                        showWarning('⚠️ Warning: WebSocket connection failed. Reverted to previous WebSocket URI.');
+                    } else {
+                        showError('WebSocket connection error. Check the URL and ensure the server is running.');
+                    }
                 };
 
-                ws.onclose = function() {
+                ws.onclose = function(event) {
+                    // If we were connecting with a new URI and connection closed without opening, revert
+                    if (isConnectingWithNewURI && event.code !== 1005) {
+                        // Connection closed abnormally (not a normal close)
+                        customWebSocketURI = previousWebSocketURI;
+                        previousWebSocketURI = null;
+                        isConnectingWithNewURI = false;
+                        // Clear pending MongoDB URI since connection failed
+                        pendingMongoDBURI = null;
+                        showWarning('⚠️ Warning: WebSocket connection failed. Reverted to previous WebSocket URI.');
+                    }
+                    
                     // Only update UI if disconnect wasn't already called
                     if (ws !== null) {
                         setStatus('disconnected', 'Disconnected');
@@ -790,6 +904,18 @@
                     console.log('WebSocket disconnected');
                 };
             } catch (e) {
+                // If we were connecting with a new URI and it failed, revert to previous
+                if (isConnectingWithNewURI) {
+                    customWebSocketURI = previousWebSocketURI;
+                    previousWebSocketURI = null;
+                    isConnectingWithNewURI = false;
+                    // Clear pending MongoDB URI since connection failed
+                    pendingMongoDBURI = null;
+                    showWarning('⚠️ Warning: Failed to create WebSocket connection. Reverted to previous WebSocket URI.');
+                } else {
+                    showError('Failed to create WebSocket: ' + e.message);
+                }
+                
                 setStatus('disconnected', 'Connection Failed');
                 document.getElementById('connectBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = true;
@@ -804,7 +930,6 @@
                 const metricsInfo = document.getElementById('metricsInfo');
                 metricsInfo.classList.remove('show');
                 document.getElementById('adminBtn').textContent = 'Admin';
-                showError('Failed to create WebSocket: ' + e.message);
             }
         }
 
@@ -956,11 +1081,15 @@
         window.onclick = function(event) {
             const infoModal = document.getElementById('infoModal');
             const passwordModal = document.getElementById('passwordModal');
+            const connectionsModal = document.getElementById('connectionsModal');
             if (event.target === infoModal) {
                 closeInfoModal();
             }
             if (event.target === passwordModal) {
                 closePasswordModal();
+            }
+            if (event.target === connectionsModal) {
+                closeConnectionsModal();
             }
         }
 
@@ -1036,6 +1165,202 @@
                 setTimeout(() => {
                     showAdminPrompt();
                 }, 1000);
+            }
+        }
+
+        function showConnectionsModal() {
+            const connectionsModal = document.getElementById('connectionsModal');
+            const websocketUriInput = document.getElementById('websocketUriInput');
+            const mongoConnectionStringInput = document.getElementById('mongoConnectionStringInput');
+            connectionsModal.classList.add('show');
+            // Pre-fill with current custom URI if set, otherwise leave empty
+            websocketUriInput.value = customWebSocketURI || '';
+            mongoConnectionStringInput.value = '';
+            websocketUriInput.focus();
+        }
+
+        function closeConnectionsModal() {
+            const connectionsModal = document.getElementById('connectionsModal');
+            const websocketUriInput = document.getElementById('websocketUriInput');
+            const mongoConnectionStringInput = document.getElementById('mongoConnectionStringInput');
+            connectionsModal.classList.remove('show');
+            websocketUriInput.value = '';
+            mongoConnectionStringInput.value = '';
+        }
+
+        function validateWebSocketURI(uri) {
+            if (!uri || uri.trim() === '') {
+                return { valid: false, error: 'WebSocket URI cannot be empty' };
+            }
+            
+            // Must start with ws:// or wss://
+            if (!uri.match(/^wss?:\/\//)) {
+                return { valid: false, error: 'WebSocket URI must start with ws:// or wss://' };
+            }
+            
+            try {
+                // Use URL constructor to validate URI structure
+                const url = new URL(uri);
+                
+                // Check protocol
+                if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+                    return { valid: false, error: 'WebSocket URI must use ws:// or wss:// protocol' };
+                }
+                
+                // Check hostname exists
+                if (!url.hostname || url.hostname.trim() === '') {
+                    return { valid: false, error: 'WebSocket URI must include a valid hostname' };
+                }
+                
+                // Port validation (if specified)
+                if (url.port && (isNaN(parseInt(url.port)) || parseInt(url.port) < 1 || parseInt(url.port) > 65535)) {
+                    return { valid: false, error: 'WebSocket URI port must be a number between 1 and 65535' };
+                }
+                
+                // Basic hostname validation - URL constructor already validates most formats
+                // Additional check for obviously invalid hostnames
+                if (url.hostname.includes(' ') || url.hostname.includes('..')) {
+                    return { valid: false, error: 'WebSocket URI contains invalid hostname format' };
+                }
+                
+                return { valid: true, error: null };
+            } catch (e) {
+                return { valid: false, error: 'Invalid WebSocket URI format: ' + e.message };
+            }
+        }
+
+        function validateMongoDBURI(uri) {
+            if (!uri || uri.trim() === '') {
+                return { valid: false, error: 'MongoDB connection string cannot be empty' };
+            }
+            
+            // MongoDB URI must start with mongodb:// or mongodb+srv://
+            if (!uri.match(/^mongodb(\+srv)?:\/\//)) {
+                return { valid: false, error: 'MongoDB connection string must start with mongodb:// or mongodb+srv://' };
+            }
+            
+            try {
+                // Use URL constructor to validate URI structure
+                const url = new URL(uri);
+                
+                // Check protocol
+                if (url.protocol !== 'mongodb:' && url.protocol !== 'mongodb+srv:') {
+                    return { valid: false, error: 'MongoDB connection string must use mongodb:// or mongodb+srv:// protocol' };
+                }
+                
+                // Check hostname exists
+                if (!url.hostname || url.hostname.trim() === '') {
+                    return { valid: false, error: 'MongoDB connection string must include a valid hostname' };
+                }
+                
+                // Basic hostname validation
+                if (url.hostname.includes(' ') || url.hostname.includes('..')) {
+                    return { valid: false, error: 'MongoDB connection string contains invalid hostname format' };
+                }
+                
+                return { valid: true, error: null };
+            } catch (e) {
+                return { valid: false, error: 'Invalid MongoDB connection string format: ' + e.message };
+            }
+        }
+
+        function submitConnections(event) {
+            event.preventDefault();
+            
+            const websocketUriInput = document.getElementById('websocketUriInput');
+            const mongoConnectionStringInput = document.getElementById('mongoConnectionStringInput');
+            const websocketURI = websocketUriInput.value.trim();
+            const mongoConnectionString = mongoConnectionStringInput.value.trim();
+            
+            // Validate MongoDB connection string if provided
+            let hasMongoDBURI = false;
+            if (mongoConnectionString !== '') {
+                const mongoValidation = validateMongoDBURI(mongoConnectionString);
+                if (!mongoValidation.valid) {
+                    showError(mongoValidation.error);
+                    return; // Keep modal open
+                }
+                hasMongoDBURI = true;
+            }
+            
+            // Validate WebSocket URI if provided
+            const hasWebSocketURI = websocketURI !== '';
+            
+            if (hasWebSocketURI) {
+                const validation = validateWebSocketURI(websocketURI);
+                if (!validation.valid) {
+                    showError(validation.error);
+                    return; // Keep modal open
+                }
+                
+                // Store previous URI before changing
+                previousWebSocketURI = customWebSocketURI;
+                
+                // Store the custom WebSocket URI
+                customWebSocketURI = websocketURI;
+                
+                // If MongoDB URI is also provided, store it to send after successful connection
+                if (hasMongoDBURI) {
+                    pendingMongoDBURI = mongoConnectionString;
+                }
+                
+                // Set flag to track that we're connecting with a new URI
+                isConnectingWithNewURI = true;
+                
+                // Close the modal
+                closeConnectionsModal();
+                
+                // Disconnect from current connection if connected
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    disconnect();
+                    // Wait a moment for disconnect to complete, then connect to new URI
+                    setTimeout(() => {
+                        connect();
+                    }, 100);
+                } else {
+                    // If not connected, just connect to new URI
+                    connect();
+                }
+            } else {
+                // If WebSocket URI is empty, handle MongoDB URI only case
+                if (hasMongoDBURI) {
+                    // If WebSocket is connected, send the MongoDB URI immediately
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const message = {
+                            type: 'updateMongoDBURI',
+                            mongoDBURI: mongoConnectionString
+                        };
+                        
+                        try {
+                            ws.send(JSON.stringify(message));
+                            console.log('Sent MongoDB URI update request');
+                            closeConnectionsModal();
+                        } catch (e) {
+                            showError('Failed to send MongoDB URI: ' + e.message);
+                            return; // Keep modal open on error
+                        }
+                    } else {
+                        // If not connected, show error
+                        showError('WebSocket not connected. Please connect before updating MongoDB URI.');
+                        return; // Keep modal open
+                    }
+                } else {
+                    // If both are empty, clear custom WebSocket URI and use default
+                    previousWebSocketURI = customWebSocketURI;
+                    customWebSocketURI = null;
+                    isConnectingWithNewURI = true;
+                    closeConnectionsModal();
+                    
+                    // If currently connected, disconnect and reconnect to default
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        disconnect();
+                        setTimeout(() => {
+                            connect();
+                        }, 100);
+                    } else {
+                        connect();
+                    }
+                }
             }
         }
     </script>

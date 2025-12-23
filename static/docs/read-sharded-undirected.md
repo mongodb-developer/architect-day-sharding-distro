@@ -18,8 +18,8 @@ When using this operation type:
 The application performs the following query against a collection sharded by the dateCreated field, which is not part of the query filter:
 
 ```json
-db.orders.find({
-	customerID: 47239
+db.orders_dc.find({
+	customerID: 47239,
 	orderStatus: 'shipped'
 })
 ```
