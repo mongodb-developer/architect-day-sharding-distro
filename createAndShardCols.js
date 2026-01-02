@@ -7,6 +7,10 @@ collections = [
     "orders_dch"
 ]
 
+const shardNames = db.getSiblingDB("config")
+  .shards
+  .distinct("_id");
+
 for (const collection of collections) {
     db.createCollection(collection)
     col = db.getCollection(collection)
@@ -19,15 +23,15 @@ for (const collection of collections) {
     adminDB  = db.getSiblingDB("admin")
     if (collection.endsWith("_ci")) {
         adminDB.runCommand({ shardCollection: "architect_day." + collection, key: { customerID: 1 } })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: MinKey() }, max: { customerID: 33333 }, toShard: "sh2" })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: 33333 }, max: { customerID: 66666 }, toShard: "sh3" })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: 66666 }, max: { customerID: MaxKey() }, toShard: "sh4" })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: MinKey() }, max: { customerID: 33333 }, toShard: shardNames[0] })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: 33333 }, max: { customerID: 66666 }, toShard: shardNames[1] })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { customerID: 66666 }, max: { customerID: MaxKey() }, toShard: shardNames[2] })
     }
     if (collection.endsWith("_dc")) {
         adminDB.runCommand({ shardCollection: "architect_day." + collection, key: { dateCreated: 1 } })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: MinKey() }, max: { dateCreated: ISODate('2025-12-31T20:53:57.657Z')}, toShard: "sh2" })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: ISODate('2025-12-31T20:53:57.657Z')}, max: { dateCreated: ISODate('2026-01-01T20:53:57.657Z')}, toShard: "sh3" })
-        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: ISODate('2026-01-01T20:53:57.657Z')}, max: { dateCreated: MaxKey() }, toShard: "sh4" })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: MinKey() }, max: { dateCreated: ISODate('2025-12-31T20:53:57.657Z')}, toShard: shardNames[0] })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: ISODate('2025-12-31T20:53:57.657Z')}, max: { dateCreated: ISODate('2026-01-01T20:53:57.657Z')}, toShard: shardNames[1] })
+        adminDB.runCommand({ moveRange: "architect_day." + collection, min: { dateCreated: ISODate('2026-01-01T20:53:57.657Z')}, max: { dateCreated: MaxKey() }, toShard: shardNames[2] })
     }
     if (collection.endsWith("_dch")) {
         col.createIndex({ dateCreated: "hashed" })
