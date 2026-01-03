@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Reset the data in the database
-export MONGO_URI="mongodb+srv://perfUser:nQwvQxHSayyyf6nF@architectdaysharded.azzy6.mongodb.net/architect_day?authSource=admin"
+export MONGO_URI=""
 mongosh $MONGO_URI --eval "db.dropDatabase()"
 mongosh $MONGO_URI --file=createAndShardCols.js
 
