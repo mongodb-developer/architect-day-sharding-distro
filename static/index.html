@@ -410,18 +410,18 @@
                 <div class="metric-label">Operation Type</div>
                 <select id="operationTypeSelect" disabled style="width: 100%; padding: 8px; font-size: 1.2em; border: 2px solid #e0e0e0; border-radius: 4px; margin-top: 8px;">
                     <option value="read-unsharded">Read (unsharded)</option>
-                    <option value="read-sharded-directed">Read (sharded / directed)</option>
-                    <option value="read-sharded-undirected">Read (sharded / undirected)</option>
+                    <option value="read-sharded-targeted">Read (sharded / targeted)</option>
+                    <option value="read-sharded-broadcast">Read (sharded / broadcast)</option>
                     <!--<option value="read-range-unsharded">Read Range (unsharded)</option>-->
                     <!--<option value="update-unsharded">Update (unsharded)</option>
-                    <option value="update-sharded-undirected">Update (sharded / undirected)</option>
-                    <option value="update-sharded-directed">Update (sharded / directed)</option>
+                    <option value="update-sharded-broadcast">Update (sharded / broadcast)</option>
+                    <option value="update-sharded-targeted">Update (sharded / targeted)</option>
                     <option value="write-unsharded">Write (unsharded)</option>-->
                     <option value="write-sharded-equal">Write (sharded / equal distribution)</option>
                     <option value="write-sharded-monotonic">Write (sharded / monotonically increasing)</option>
                     <option value="write-sharded-hashed">Write (sharded / hashed)</option>
-                    <option value="read-range-sharded-undirected">Read Range (sharded / undirected-hashed)</option>
-                    <option value="read-range-sharded-directed">Read Range (sharded / directed)</option>
+                    <option value="read-range-sharded-broadcast">Read Range (sharded / broadcast-hashed)</option>
+                    <option value="read-range-sharded-targeted">Read Range (sharded / targeted)</option>
                 </select>
             </div>
             <div class="metric-card">
@@ -640,17 +640,17 @@
                 let rawValue = 0;
                 switch (shardData.operationType) {
                     case 'read-unsharded':
-                    case 'read-sharded-undirected':
-                    case 'read-sharded-directed':
+                    case 'read-sharded-broadcast':
+                    case 'read-sharded-targeted':
                     case 'read-range-unsharded':
-                    case 'read-range-sharded-directed':
-                    case 'read-range-sharded-undirected':
+                    case 'read-range-sharded-broadcast':
+                    case 'read-range-sharded-targeted':
                         chart.options.scales.y.title.text = 'Reads per Second';
                         rawValue = shardData.opCounts.Queries;
                         break;
                     case 'update-unsharded':
-                    case 'update-sharded-undirected':
-                    case 'update-sharded-directed':
+                    case 'update-sharded-broadcast':
+                    case 'update-sharded-targeted':
                     chart.options.scales.y.title.text = 'Updates per Second';
                         rawValue = shardData.opCounts.Updates;
                         break;
