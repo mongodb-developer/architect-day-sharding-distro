@@ -218,6 +218,36 @@
             margin-top: 20px;
         }
 
+        .chart-wrapper.hidden,
+        .bar-charts-row.hidden {
+            display: none;
+        }
+
+        .bar-charts-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .bar-chart-wrapper {
+            position: relative;
+            height: 500px;
+            flex: 1 1 400px;
+            min-width: 0;
+        }
+
+        .btn-toggle {
+            background: #764ba2;
+            color: white;
+        }
+
+        .btn-toggle:hover:not(:disabled) {
+            background: #5f3a83;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 75, 162, 0.4);
+        }
+
         .error-message {
             margin-top: 15px;
             padding: 12px;
@@ -400,6 +430,7 @@
                 <button class="btn btn-connect" id="connectBtn" onclick="connect()">Connect</button>
                 <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
                 <!--<button class="btn btn-info" id="infoBtn" onclick="showOperationInfo()" disabled>Info</button>-->
+                <button class="btn btn-toggle" id="viewToggleBtn" onclick="toggleView()">Switch to Line View</button>
                 <button class="btn btn-admin" id="adminBtn" onclick="showAdminPrompt()">Admin</button>
                 <div class="operation-type-selector" id="operationTypeSelector">
                 <div class="operation-type-card">
@@ -445,9 +476,17 @@
         </div>
 
         <div class="chart-container">
-            <h2 style="margin-bottom: 20px; color: #333;">Operations Per Shard</h2>
-            <div class="chart-wrapper">
+            <h2 id="chartSectionTitle" style="margin-bottom: 20px; color: #333;">Operations Overview</h2>
+            <div class="chart-wrapper hidden" id="chartWrapperLine">
                 <canvas id="metricsChart"></canvas>
+            </div>
+            <div class="bar-charts-row" id="chartWrapperBars">
+                <div class="bar-chart-wrapper">
+                    <canvas id="overallBarChart"></canvas>
+                </div>
+                <div class="bar-chart-wrapper">
+                    <canvas id="shardsBarChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -512,7 +551,11 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script>
         let ws = null;
-        let chart = null;
+        let lineChart = null;
+        let overallBarChart = null;
+        let shardsBarChart = null;
+        let currentView = 'bars';
+        let currentValueAxisTitle = 'Operations per Second';
         let isFirstMessage = false;
         let customWebSocketURI = null; // Custom WebSocket URI set by user
         let previousWebSocketURI = null; // Previous WebSocket URI for reverting on failure
@@ -525,9 +568,9 @@
             operations: []
         };
 
-        function initChart() {
+        function initLineChart() {
             const ctx = document.getElementById('metricsChart').getContext('2d');
-            chart = new Chart(ctx, {
+            lineChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dataStore.labels,
@@ -574,6 +617,135 @@
                     }
                 }
             });
+        }
+
+        function initOverallBarChart() {
+            const ctx = document.getElementById('overallBarChart').getContext('2d');
+            overallBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Application Operations', 'Total Database Operations'],
+                    datasets: [{
+                        label: 'Operations per Second',
+                        data: [0, 0],
+                        backgroundColor: [
+                            'rgba(0, 114, 178, 0.7)',
+                            'rgba(86, 180, 233, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgb(0, 114, 178)',
+                            'rgb(86, 180, 233)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Application vs Cluster'
+                        },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Operations per Second'
+                            }
+                        },
+                        y: {
+                            display: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function initShardsBarChart() {
+            const ctx = document.getElementById('shardsBarChart').getContext('2d');
+            shardsBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Operations per Second',
+                        data: [],
+                        backgroundColor: [],
+                        borderColor: [],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Per-Shard Operations'
+                        },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Operations per Second'
+                            }
+                        },
+                        y: {
+                            display: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function initCharts() {
+            initLineChart();
+            initOverallBarChart();
+            initShardsBarChart();
+            applyViewVisibility();
+        }
+
+        function applyViewVisibility() {
+            const lineWrap = document.getElementById('chartWrapperLine');
+            const barsWrap = document.getElementById('chartWrapperBars');
+            const toggleBtn = document.getElementById('viewToggleBtn');
+            const sectionTitle = document.getElementById('chartSectionTitle');
+            if (currentView === 'bars') {
+                lineWrap.classList.add('hidden');
+                barsWrap.classList.remove('hidden');
+                toggleBtn.textContent = 'Switch to Line View';
+                sectionTitle.textContent = 'Operations Overview';
+            } else {
+                lineWrap.classList.remove('hidden');
+                barsWrap.classList.add('hidden');
+                toggleBtn.textContent = 'Switch to Bar View';
+                sectionTitle.textContent = 'Operations Per Shard';
+            }
+        }
+
+        function toggleView() {
+            currentView = (currentView === 'bars') ? 'line' : 'bars';
+            applyViewVisibility();
+            if (currentView === 'line' && lineChart) {
+                lineChart.resize();
+                lineChart.update('none');
+            } else {
+                if (overallBarChart) { overallBarChart.resize(); overallBarChart.update('none'); }
+                if (shardsBarChart) { shardsBarChart.resize(); shardsBarChart.update('none'); }
+            }
         }
 
         function calculateMovingAverage(array) {
@@ -660,26 +832,29 @@
                     case 'read-range-unsharded':
                     case 'read-range-sharded-broadcast':
                     case 'read-range-sharded-targeted':
-                        chart.options.scales.y.title.text = 'Reads per Second';
+                        currentValueAxisTitle = 'Reads per Second';
                         rawValue = shardData.opCounts.Queries;
                         break;
                     case 'update-unsharded':
                     case 'update-sharded-broadcast':
                     case 'update-sharded-targeted':
-                    chart.options.scales.y.title.text = 'Updates per Second';
+                        currentValueAxisTitle = 'Updates per Second';
                         rawValue = shardData.opCounts.Updates;
                         break;
                     case 'write-unsharded':
                     case 'write-sharded-equal':
                     case 'write-sharded-hashed':
                     case 'write-sharded-monotonic':
-                        chart.options.scales.y.title.text = 'Inserts per Second';
+                        currentValueAxisTitle = 'Inserts per Second';
                         rawValue = shardData.opCounts.Inserts;
                         break;
                     default:
                         rawValue = 0;
                         break;
                 }
+                lineChart.options.scales.y.title.text = currentValueAxisTitle;
+                overallBarChart.options.scales.x.title.text = currentValueAxisTitle;
+                shardsBarChart.options.scales.x.title.text = currentValueAxisTitle;
 
                 // Add raw value to the rolling buffer (keep last 10 values)
                 dataStore[shardName].rawOperations.push(rawValue);
@@ -706,8 +881,8 @@
                 updatedChartData.push(chartDataSet);
 
             }
-            chart.data.datasets = [...updatedChartData];
-            chart.data.labels = [...dataStore.labels];
+            lineChart.data.datasets = [...updatedChartData];
+            lineChart.data.labels = [...dataStore.labels];
             totalsDataSet = {
                 label: "Total Database Operations",
                 data: [],
@@ -716,17 +891,49 @@
                 tension: 0.4,
                 fill: true
             }
-            for (i =0; i < chart.data.datasets[0].data.length; i++) {
+            for (i =0; i < lineChart.data.datasets[0].data.length; i++) {
                 totalsDataSet.data.push(0);
-                for (y =0; y < chart.data.datasets.length; y++) {
-                    if (chart.data.datasets[y].label !== "Application Operations") {
-                        totalsDataSet.data[i] += chart.data.datasets[y].data[i];
+                for (y =0; y < lineChart.data.datasets.length; y++) {
+                    if (lineChart.data.datasets[y].label !== "Application Operations") {
+                        totalsDataSet.data[i] += lineChart.data.datasets[y].data[i];
                     }
                 }
             }
-            chart.data.datasets.push(totalsDataSet);
-            // Update chart
-            chart.update('none');
+            lineChart.data.datasets.push(totalsDataSet);
+            lineChart.update('none');
+
+            updateBarCharts(updatedChartData, totalsDataSet);
+        }
+
+        function updateBarCharts(lineDatasets, totalsDataSet) {
+            const latest = (arr) => (arr && arr.length) ? arr[arr.length - 1] : 0;
+
+            const appDataset = lineDatasets.find(d => d.label === 'Application Operations');
+            const appLatest = appDataset ? latest(appDataset.data) : 0;
+            const totalLatest = latest(totalsDataSet.data);
+
+            overallBarChart.data.datasets[0].data = [appLatest, totalLatest];
+            overallBarChart.update('none');
+
+            const shardLabels = [];
+            const shardData = [];
+            const shardBg = [];
+            const shardBorder = [];
+            for (const ds of lineDatasets) {
+                if (ds.label === 'Application Operations' || ds.label === 'Total Database Operations') {
+                    continue;
+                }
+                shardLabels.push(ds.label);
+                shardData.push(latest(ds.data));
+                const rgb = (ds.borderColor || 'rgb(0, 114, 178)').replace('rgb(', '').replace(')', '');
+                shardBg.push('rgba(' + rgb + ', 0.7)');
+                shardBorder.push('rgb(' + rgb + ')');
+            }
+            shardsBarChart.data.labels = shardLabels;
+            shardsBarChart.data.datasets[0].data = shardData;
+            shardsBarChart.data.datasets[0].backgroundColor = shardBg;
+            shardsBarChart.data.datasets[0].borderColor = shardBorder;
+            shardsBarChart.update('none');
         }
 
         function updateSettings(data) {
@@ -1014,9 +1221,9 @@
             }
         }
 
-        // Initialize chart on page load
+        // Initialize charts on page load
         window.addEventListener('DOMContentLoaded', function() {
-            initChart();
+            initCharts();
             
             // Add event listeners for input changes with debounce
             let updateTimeout;
